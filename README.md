@@ -7,7 +7,7 @@ Detector calibration (ITS, TPC, TOF) and purity extraction for He³–hadron ana
 ## Repository layout
 
 ```
-he3-hadron-calibration/
+DetectorCalibration/
 │
 ├── configs/                    # one YAML per dataset × step
 │   ├── LHC23_pass4_ITS.yaml
@@ -54,7 +54,7 @@ he3-hadron-calibration/
 ```bash
 # Clone and install in editable mode (no sys.path hacks needed)
 git clone <repo-url>
-cd he3-hadron-calibration
+cd DetectorCalibration
 pip install -e .
 ```
 
