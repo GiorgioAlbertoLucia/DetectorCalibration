@@ -1,0 +1,27 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.backends.legacy:build"
+
+[project]
+name = "he3-hadron-calibration"
+version = "0.1.0"
+description = "Detector calibration (ITS, TPC, TOF) and purity extraction for He3-hadron analyses"
+requires-python = ">=3.9"
+dependencies = [
+    "numpy",
+    "pandas",
+    "pyyaml",
+    "particle",
+    "scikt-learn",
+    "torchic",      # provides Dataset, AxisSpec, RooGausExp, RooGausDExp, etc.
+]
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["calibration*"]
+
+[project.scripts]
+calib-its    = "scripts.run_its:main"
+calib-tpc    = "scripts.run_tpc:main"
+calib-tof    = "scripts.run_tof:main"
+calib-purity = "scripts.run_purity:main"

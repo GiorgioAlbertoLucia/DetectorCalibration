@@ -1,0 +1,20 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+dist/
+build/
+.venv/
+.env
+
+# Output (ROOT files, PDFs — large, not versioned)
+output/*
+!output/.gitkeep
+
+# ROOT
+*.root
+
+# Editors
+.vscode/
+.idea/
+*.swp
