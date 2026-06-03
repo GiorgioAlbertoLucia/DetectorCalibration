@@ -1,0 +1,56 @@
+# ── Dataset identity ──────────────────────────────────────────────────────────
+dataset:
+  label: LHC23_PbPb_pass5          # used in plot titles and output naming
+  input_files:
+    - /data/galucia/lithium/purity/LHC23_PbPb_pass5_purity.root
+
+# ── Output ────────────────────────────────────────────────────────────────────
+output:
+  dir: /home/galucia/DetectorCalibration/output/purity
+
+
+purity:
+
+  particles: [He3, Had]             # which particles to calibrate
+  He3: 
+      detectors: [TPC]
+      TPC:
+        pt_range: [1.2, 4.0]
+        bkg_pt_min: [0., 0., 0., 0.]
+        bkg_pt_max: [5., 5., 5., 5.]
+        signal_model: gausdexp
+        bkg_models: [pol1, pol0, exp, gausexp]
+        signal_window: [-4, 10.5]
+        fit_range: [-8, 8]
+        nsigma_integral: [-2, 2]
+        info_box_position: [0.35, 0.2, 0.65, 0.48]
+  Had: 
+    detectors: [TPC, TOF]
+    TPC:
+      pt_range: [0.4, 0.9]
+      bkg_pt_min: [0., 0., 0., 0.]
+      bkg_pt_max: [5., 5., 5., 5.]
+      signal_model: gausdexp #gausdexp,
+      bkg_models: [ #exp,
+                    #exp+exp,
+                    gausexp+gausexp,
+                    gausexp+exp
+                   ]
+      signal_window: [-4, 10.5]
+      fit_range: [-8, 5]
+      nsigma_integral: [-2, 2]
+      info_box_position: [0.35, 0.2, 0.65, 0.48]
+    TOF:
+      pt_range: [0.4, 4.0]
+      bkg_pt_min: [0., 1.6, 2.05, 2.05]
+      bkg_pt_max: [1.6, 5.05, 5., 5.]
+      signal_model: gausdexp #gausdexp,
+      bkg_models: [exp,
+                   exp+exp,
+                   gausexp,
+                   gausexp+exp
+                   ]
+      signal_window: [-5, 5]
+      fit_range: [-8, 8]
+      nsigma_integral: [-2, 2]
+      info_box_position: [0.35, 0.2, 0.65, 0.48]

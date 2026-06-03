@@ -1,0 +1,14 @@
+input_file: '/data/galucia/QA/LHC26c6/AO2D.root'
+output_file: '../output/momentum_resolution/LHC26c6_momentum_resolution_he3.root'
+
+pt_resolution:
+  xmin: 1.45
+  xmax: 2.30
+  ymin: -0.5
+  ymax: 0.5
+
+p_resolution:
+  xmin: 1.55
+  xmax: 2.50
+  ymin: -0.5
+  ymax: 0.5
