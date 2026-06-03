@@ -90,8 +90,8 @@ class SignalModel:
         pars = {
             'mean': RooRealVar('mean', '#mu', mean_init, mean_min, mean_max),
             'sigma': RooRealVar('sigma', '#sigma', sigma_init, sigma_min, sigma_max),
-            'rlife0': RooRealVar('rlife0', 'rlife0', -0.8, -1.2, -0.5),
-            'rlife1': RooRealVar('rlife1', 'rlife1', 2., 0.5, 1.2),
+            'rlife0': RooRealVar('rlife0', 'rlife0', -0.8, -5.2, -0.5),
+            'rlife1': RooRealVar('rlife1', 'rlife1', 2., 0.5, 5.2),
         }
         pdf = RooGausDExp('signal', 'signal', x, *pars.values())
         return pdf, pars
@@ -143,6 +143,8 @@ class BackgroundModel:
             return BackgroundModel._create_pol1_exp(x, particle, suffix)
         elif function == 'pol0+gausexp':
             return BackgroundModel._create_pol0_gausexp(x, particle, suffix)
+        elif function == 'gausexp+gausexp':
+            return BackgroundModel._create_gausexp_gausexp(x, particle, suffix)
         elif function == 'exp+exp':
             return BackgroundModel._create_exp_exp(x, particle, suffix)
         else:
@@ -255,7 +257,7 @@ class BackgroundModel:
     @staticmethod
     def _create_gausexp_exp(x, particle, suffix):
         pars = {
-            'alpha': RooRealVar('alpha', 'alpha', 0.14, 0.001, 0.3),
+            'alpha': RooRealVar('alpha', 'alpha', 0.14, 0.0001, 0.3),
             'offset': RooRealVar('offset', 'offset', -5., -20., 0.),
             'mean': RooRealVar('mean_bkg', 'mean_bkg', -5., -10, -2),
             'sigma': RooRealVar('sigma_bkg', 'sigma_bkg', 1.0, 0.1, 5.),
@@ -291,7 +293,7 @@ class BackgroundModel:
     @staticmethod
     def _create_exp_gaus(x, particle, suffix):
         pars = {
-            'alpha': RooRealVar('alpha', 'alpha', 1., 0.01, 100.),
+            'alpha': RooRealVar('alpha', 'alpha', 1., 0.0001, 10.),
             'offset': RooRealVar('offset', 'offset', -5., -20., 0.),
             'mean': RooRealVar('mean_bkg', 'mean_bkg', -5., -10, -3),
             'sigma': RooRealVar('sigma_bkg', 'sigma_bkg', 1.0, 0.1, 5.),
@@ -333,4 +335,20 @@ class BackgroundModel:
         gausexp = RooGausExp(f'bkg{suffix}_gausexp', 'bkg', x, 
                             pars['mean'], pars['sigma'], pars['rlife'])
         return [pol0, gausexp], pars
+    
+    @staticmethod
+    def _create_gausexp_gausexp(x, particle, suffix):
+        pars = {
+            'mean1': RooRealVar('bkg_mean1', 'mean1', -4., -10, -2),
+            'sigma1': RooRealVar('bkg_sigma1', 'sigma1', 1.0, 0.1, 5.),
+            'rlife1': RooRealVar('bkg_rlife1', 'rlife1', 2., 0.5, 10.),
+            'mean2': RooRealVar('bkg_mean2', 'mean2', -4., -10, -2),
+            'sigma2': RooRealVar('bkg_sigma2', 'sigma2', 1.0, 0.1, 5.),
+            'rlife2': RooRealVar('bkg_rlife2', 'rlife2', 2., 0.5, 10.),
+        }
+        gausexp1 = RooGausExp(f'bkg{suffix}_gausexp1', 'bkg', x, 
+                            pars['mean1'], pars['sigma1'], pars['rlife1'])
+        gausexp2 = RooGausExp(f'bkg{suffix}_gausexp2', 'bkg', x, 
+                            pars['mean2'], pars['sigma2'], pars['rlife2'])
+        return [gausexp1, gausexp2], pars
     

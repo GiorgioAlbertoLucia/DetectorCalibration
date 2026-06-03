@@ -56,7 +56,8 @@ class SidebandFitter:
         'exp+gaus': ['exp', 'gaus'],
         'pol1+exp': ['pol1', 'exp'],
         'pol0+gausexp': ['pol0', 'gausexp'],
-        'exp+exp': ['exp', 'exp']
+        'exp+exp': ['exp', 'exp'],
+        'gausexp+gausexp': ['gausexp', 'gausexp']
     }
     
     @classmethod
