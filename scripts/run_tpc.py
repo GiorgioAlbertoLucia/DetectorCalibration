@@ -12,11 +12,11 @@ import numpy as np
 from ROOT import gStyle
 from torchic.physics.ITS import average_cluster_size
 from torchic import Dataset
+from torchic.physics.particles import PARTICLES
 
 import sys
 sys.path.append('..')
 from calibration.common.config import load_config
-from calibration.common.particles import PDG_CODE, PARTICLE_MASS, TREE_SUFFIX
 from calibration.tpc.calibrator import TPCCalibrator
 
 def load_dataset(cfg) -> Dataset:
@@ -45,7 +45,7 @@ def prepare_dataset(dataset, particle:str, cfg):
         average_cluster_size(dataset[cfg['cluster_size']], do_truncated=True)
 
     dataset.query(f'fNHitsIts > 5', inplace=True)
-    mass = PARTICLE_MASS[particle]
+    mass = PARTICLES[particle].mass
     dataset[f'fBetaGamma'] = np.abs(dataset['fP']) / mass
     dataset['fP']          = np.abs(dataset['fP'])
 

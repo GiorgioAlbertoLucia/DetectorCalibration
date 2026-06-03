@@ -21,15 +21,13 @@ from scipy.interpolate import interp1d
 from scipy.stats import norm
 import pandas as pd
 from pathlib import Path
-from ROOT import TFile, TF1, TCanvas, TPad, TMath, \
+from ROOT import TFile, TF1, TCanvas, TPad, \
                  RooRealVar, RooAddPdf
 
 from torchic import Dataset, AxisSpec
 from torchic.physics import py_BetheBloch, BetheBloch
 from torchic.core.graph import create_graph
 
-from calibration.common.config import load_config
-from calibration.common.particles import PDG_CODE, PARTICLE_MASS, TREE_SUFFIX
 from calibration.common.fit_utils import (
     calibration_fit_slice,
     initialize_means_and_covariances,
