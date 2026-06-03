@@ -2,7 +2,7 @@
 dataset:
   label: LHC25_pp_pass1          # used in plot titles and output naming
   input_files:
-    - /data/galucia/lithium_local/same/LHC25ac_pass1_skimmed_hadronpid_same.root
+    - /data/galucia/lithium_local/same/LHC25_pass1_skimmed_hadronpid_same.root
   tree_name: O2he3hadtable
   folder_name: "DF*"
   variable_names: {
@@ -47,5 +47,5 @@ its:
   He:
     x_nbins: 100
     x_min_fit: 0.7
-    x_max_fit: 2.5
-    x_max_bkg: 2.55
+    x_max_fit: 2.8
+    x_max_bkg: 2.85

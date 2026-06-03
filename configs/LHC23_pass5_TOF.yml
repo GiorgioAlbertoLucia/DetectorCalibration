@@ -14,6 +14,7 @@ dataset:
       eta: fEtaHe3,
       cluster_size: fItsClusterSizeHe3,
       signal: fSignalTPCHe3,
+      mass: fMassTOFHe3,
     },
     Pr: {
       pid_for_tracking: fPIDtrkHad,
@@ -22,30 +23,30 @@ dataset:
       eta: fEtaHad,
       cluster_size: fItsClusterSizeHad,
       signal: fSignalTPCHad,
+      mass: fMassTOFHad,
     }
   }
 
 # ── Output ────────────────────────────────────────────────────────────────────
 output:
-  dir: /home/galucia/DetectorCalibration/output/TPC
+  dir: /home/galucia/DetectorCalibration/output/TOF
   
 # ── ITS-specific settings ─────────────────────────────────────────────────────
-tpc:
-  particles: [Pr, He]             # which particles to calibrate
-  cluster_size_mode: mean         # 'mean' or 'truncated'
-  x_variable: beta_gamma          # 'beta_gamma' or 'p'
+tof:
+  particles: [Pr]             # which particles to calibrate
+  x_variable: pt                  # 'beta_gamma' or 'p'
 
   # Signal model used in the RooFit slice fits
-  signal_model: crystalball           # 'gausexp' | 'crystalball' | 'gaus'
-  bkg_model: gausexp              # 'gausexp' | 'gaus'
+  signal_model: gausexp           # 'gausexp' | 'crystalball' | 'gaus'
+  bkg_model: 'exp+exp'              # 'gausexp' | 'gaus'
 
   # Per-particle fit ranges and histogram binning.
   # x_min_fit / x_max_fit refer to the x_variable (beta_gamma or p).
   Pr:
     x_nbins: 200
-    x_min_fit: 0.5
+    x_min_fit: 0.7
     x_max_fit: 4.0
-    x_max_bkg: 0.90               # only used when a background component is added
+    x_max_bkg: 0.               # only used when a background component is added
 
   He:
     x_nbins: 100

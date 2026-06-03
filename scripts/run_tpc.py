@@ -31,11 +31,19 @@ def prepare_dataset(dataset, particle:str, cfg):
 
     print(f'{dataset.columns=}')
     print(f'{dataset["fSignalTPCHe3"]=}')
+    is_mc = cfg['dataset'].get('is_mc', False)
     cfg = cfg['dataset']['variable_names'][particle]
+    
     if particle == 'He': 
         dataset.query(f'{cfg["pid_for_tracking"]} == 7', inplace=True)
     
-    dataset['fP'] = dataset[cfg['pt']] * np.cosh(dataset[cfg['eta']])
+    if 'p' not in cfg.keys():
+        dataset['fP'] = dataset[cfg['pt']] * np.cosh(dataset[cfg['eta']])
+        cfg['p'] = 'fP'
+    else:
+        dataset['fP'] = dataset[cfg['p']]
+        if particle == 'He':
+            dataset['fP'] = dataset['fP'] * 2 
 
     dataset[cfg['cluster_size']] = np.array(
         dataset[cfg['cluster_size']], np.uint64
@@ -45,11 +53,13 @@ def prepare_dataset(dataset, particle:str, cfg):
         average_cluster_size(dataset[cfg['cluster_size']], do_truncated=True)
 
     dataset.query(f'fNHitsIts > 5', inplace=True)
+    if particle == 'He':
+        dataset.query('fAvgClusterSize > 5', inplace=True)
+    
     mass = PARTICLES[particle].mass
     dataset[f'fBetaGamma'] = np.abs(dataset['fP']) / mass
     dataset['fP']          = np.abs(dataset['fP'])
 
-    cfg['p'] = 'fP'
     cfg['betagamma'] = f'fBetaGamma'
     cfg['avg_cl_size_cosl'] = f'fAvgClSizeCosLam'
     cfg['n_hits_its'] = f'fNHitsIts'

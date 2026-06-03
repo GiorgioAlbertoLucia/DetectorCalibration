@@ -40,6 +40,7 @@ from calibration.tof.models import init_signal_roofit, init_background_roofit
 _X_BOUNDS = {
     'beta_gamma': {'x_min': 0, 'x_max': 5},
     'p':          {'x_min': 0, 'x_max': 6},
+    'pt':         {'x_min': 0, 'x_max': 6},
 }
 
 _X_META = {
@@ -52,6 +53,11 @@ _X_META = {
         'axis_name':  'p',
         'axis_title': '#it{p} (GeV/c)',
         'var_name':   'fP',
+    },
+    'pt': {
+        'axis_name':  'pt',
+        'axis_title': '#it{p}_{T} (GeV/c)',
+        'var_name':   'fPt',
     },
 }
 
@@ -129,13 +135,13 @@ class TOFCalibrator:
             x_meta['axis_name'], ';;'
         )
         axis_spec_signal = AxisSpec(
-            200, 0, 2000, 'cluster_size_cal',
-            f';{x_meta["axis_title"]};#it{{m}}_{{T{OF}^{{2}}}}'
+            200, 0, 5, 'mass_cal',
+            f';{x_meta["axis_title"]};#it{{m}}_{{TOF}}^{{2}}'
         )
 
         h2_signal = self.dataset.build_th2(
             x_meta['var_name'],
-            self.cfg['dataset']['variable_names'][particle]['signal'],
+            self.cfg['dataset']['variable_names'][particle]['mass'],
             axis_spec_x, axis_spec_signal,
         )
 
@@ -143,7 +149,8 @@ class TOFCalibrator:
             self.signal, function=self.tof_cfg.get('signal_model', 'gausexp')
         )
         bkg, bkg_pars = init_background_roofit(
-            self.signal, function=self.tof_cfg.get('bkg_model', 'exp+exp')
+            self.signal, particle,
+            function=self.tof_cfg.get('bkg_model', 'exp+exp')
         )
 
         x_min = p_cfg['x_min_fit']
@@ -295,9 +302,8 @@ class TOFCalibrator:
             'g_mean',
             f';{x_meta["axis_title"]};#LT #it{{m}}_{{TOF}} #GT (GeV/#it{{c}}^{{2}})',
         )
-        f_mean = TF1('f_mean', '[0] + [1]*x + [2]*x^2', x_min, x_max, 5)
-        f_mean.SetParameters(PARTICLE_MASS[particle], 0.5, 0.1)
-        self._set_bb_params(f_mean)
+        f_mean = TF1('f_mean', '[0] + [1]*x + [2]*x^2', x_min, x_max)
+        f_mean.SetParameters(PARTICLE_MASS[particle], -0.5, -0.1)
         g_mean.Fit(f_mean, 'RMS+')
         
         g_resolution = create_graph(
@@ -305,38 +311,31 @@ class TOFCalibrator:
             'g_resolution', f';{x_meta["axis_title"]};#sigma / #mu',
         )
 
-        f_resolution = TF1('f_resolution', '[0]', x_min, x_max)
+        f_resolution = TF1('f_resolution', '[0] + [1]*x + [2]*x', x_min, x_max)
         f_resolution.SetParameters(0.09)
         g_resolution.Fit(f_resolution, 'RMS+')
         
-        pid_params = (f_mean.GetParameter(0), f_mean.GetParameter(1), f_mean.GetParameter(2),
-                        f_mean.GetParameter(3), f_mean.GetParameter(4), f_resolution.GetParameter(0))
+        pid_params = (f_mean.GetParameter(0), f_mean.GetParameter(1), f_mean.GetParameter(2), 
+                      f_resolution.GetParameter(0), f_resolution.GetParameter(1), f_resolution.GetParameter(2))
             
         particle_dir.cd()
         g_mean.Write()
         g_resolution.Write()
 
-        self.dataset['fExpTOFSignal'] = np_bethe_bloch(np.abs(self.dataset['fBetaGamma']), *pid_params[:5])
-        compute_resolution = lambda betagamma: pid_params[5] #* 1/ (1 + np.exp(-(betagamma-resolution_params[1])/resolution_params[2]))
+        self.dataset['fExpTOFSignal'] = pid_params[0] + pid_params[1] * abs(self.dataset['fPt']) + pid_params[2] * abs(self.dataset['fPt'])**2
+        compute_resolution = lambda pt: pid_params[3] + pid_params[4] * pt + pid_params[5] * pt**2
         compute_resolution_vectorised = np.vectorize(compute_resolution)
-        self.dataset['fResolution'] = compute_resolution_vectorised(abs(self.dataset['fBetaGamma']))
-        self.dataset['fNSigmaTOF'] = (self.dataset[self.cfg['dataset']['variable_names'][particle]['signal']] - self.dataset['fExpTOFSignal']) / (self.dataset['fExpTOFSignal'] * self.dataset['fResolution'])
+        self.dataset['fResolution'] = compute_resolution_vectorised(abs(self.dataset['fPt']))
+        self.dataset['fNSigmaTOF'] = (self.dataset[self.cfg['dataset']['variable_names'][particle]['mass']] - self.dataset['fExpTOFSignal']) / (self.dataset['fExpTOFSignal'] * self.dataset['fResolution'])
 
-        axis_spec_betagamma = AxisSpec(320, -8, 8, 'beta_gamma', ';#beta#gamma;#it{m}_{TOF} (GeV/#it{c})')
-        axis_spec_tofsignal = AxisSpec(100, 0, 2000, 'TOF_signal', ';#beta#gamma;#it{m}_{TOF} (GeV/#it{c})')
+        axis_spec_betagamma = AxisSpec(320, -8, 8, 'pt', ';#it{p}_{T} (GeV/#it{c});#it{m}_{TOF} (GeV/#it{c})')
+        axis_spec_tofsignal = AxisSpec(100, 0, 5, 'TOF_signal', ';#beta#gamma;#it{m}_{TOF} (GeV/#it{c})')
         axis_spec_nsigmatof = AxisSpec(100, -5, 5, 'nsigma_TOF', ';#beta#gamma;n#sigma_{TOF}')
 
         h2_nsigmatof = self.dataset.build_th2(f'{x_meta["var_name"]}', 'fNSigmaTOF', axis_spec_betagamma, axis_spec_nsigmatof)
         h2_exptof = self.dataset.build_th2(f'{x_meta["var_name"]}', 'fExpTOFSignal', axis_spec_betagamma, axis_spec_tofsignal)
-        h2_tof = self.dataset.build_th2(f'{x_meta["var_name"]}', self.cfg['dataset']['variable_names'][particle]['signal'], 
+        h2_tof = self.dataset.build_th2(f'{x_meta["var_name"]}', self.cfg['dataset']['variable_names'][particle]['mass'], 
                                         axis_spec_betagamma, axis_spec_tofsignal)
-
-        f_fit_matter = TF1('f_fit_matter', BetheBloch, x_min, x_max, 5)
-        f_fit_matter.SetParameters(*pid_params[:5])
-        def BetheBlochAntimatter(x, *params):
-            return BetheBloch(-x, *params)
-        f_fit_antimatter = TF1('f_fit_antimatter', BetheBlochAntimatter, -x_max, -x_min, 5)
-        f_fit_antimatter.SetParameters(*pid_params[:5])
 
         particle_dir.cd()
         
@@ -346,8 +345,6 @@ class TOFCalibrator:
         
         canvas = TCanvas('cNSigmaTOF', 'cNSigmaTOF', 800, 600)
         h2_tof.Draw('colz')
-        f_fit_matter.Draw('same')
-        f_fit_antimatter.Draw('same')
         canvas.Write()
         
     

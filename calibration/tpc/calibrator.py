@@ -21,12 +21,13 @@ from scipy.interpolate import interp1d
 from scipy.stats import norm
 import pandas as pd
 from pathlib import Path
-from ROOT import TFile, TF1, TCanvas, TPad, \
+from ROOT import TFile, TF1, TCanvas, TPad, TMath, TGraphErrors, \
                  RooRealVar, RooAddPdf
 
 from torchic import Dataset, AxisSpec
 from torchic.physics import py_BetheBloch, BetheBloch
 from torchic.core.graph import create_graph
+from torchic.utils.root import set_root_object
 
 from calibration.common.fit_utils import (
     calibration_fit_slice,
@@ -275,7 +276,7 @@ class TPCCalibrator:
         func.SetParLimits(0, -1000., -1.)    # p1: negative amplitude
         func.SetParLimits(1, 0.1,    5.)     # p2: beta power
         func.SetParLimits(2, 0.5,    5.)     # p3: log argument offset  
-        func.SetParLimits(3, 0.1,   20.)     # p4: density correction
+        func.SetParLimits(3, 0.5,    2.)     # p4: density correction
         func.SetParLimits(4, 1.5,    3.5)    # p5: exponent
 
     def _visualize_fit_results(
@@ -323,6 +324,35 @@ class TPCCalibrator:
         self._set_bb_params(f_log_mean)
         g_log_mean.Fit(f_log_mean, 'RMS+')
         
+        g_residuals = TGraphErrors(fit_results_df.shape[0])
+        set_root_object(g_residuals, name='g_mean_residuals', title=f';{x_meta["axis_title"]};Residuals (a.u.)')
+        for i, row in fit_results_df.iterrows():
+            x = row['x']
+            y = row['mean']
+            y_fit = np.exp(f_log_mean.Eval(x))
+            residual = y - y_fit
+            g_residuals.SetPoint(i, x, residual)
+            g_residuals.SetPointError(i, row['x_error'], row['mean_err'])
+        f_residuals = TF1('f_residuals', 
+            '[0]*exp(-0.5*((x-[1])/[2])**2) + [3]*exp(-0.5*((x-[4])/[5])**2)',
+            x_min, 1.5)
+            #x_min, x_max)
+        residuals_cfg   = self.tpc_cfg[particle]['residuals']
+        
+        f_residuals.SetParameters(residuals_cfg.get('par0', [38])[0], 
+                                  residuals_cfg.get('par1', [0.65])[0], 
+                                  residuals_cfg.get('par2', [0.05])[0],   # positive spike
+                                  residuals_cfg.get('par3', [-10])[0], 
+                                  residuals_cfg.get('par4', [0.9])[0],  
+                                  residuals_cfg.get('par5', [0.1])[0])    # negative dip
+        f_residuals.SetParLimits(0, *(residuals_cfg.get('par0',(0, 0, 50))[1:] ))       # positive spike amplitude
+        f_residuals.SetParLimits(1, *(residuals_cfg.get('par1',(1, 0.1, 0.8))[1:] ))         # positive spike position
+        f_residuals.SetParLimits(2, *(residuals_cfg.get('par2',(2, 0., 0.1))[1:] ))       # positive spike position
+        f_residuals.SetParLimits(3, *(residuals_cfg.get('par3',(3, -30, 0))[1:] ))       # positive spike position
+        f_residuals.SetParLimits(4, *(residuals_cfg.get('par4',(4, 0.8, 1.2))[1:] ))        # negative dip position
+        g_residuals.Fit(f_residuals, 'RMS+')
+        residual_params = [f_residuals.GetParameter(i) for i in range(6)]
+        
         g_resolution = create_graph(
             fit_results_df, 'x', 'resolution', 'x_error', 'resolution_err',
             'g_resolution', f';{x_meta["axis_title"]};#sigma / #mu',
@@ -330,28 +360,47 @@ class TPCCalibrator:
 
         f_resolution = TF1('f_resolution', '[0]', x_min, x_max)
         f_resolution.SetParameters(0.09)
+        
+        #f_resolution = TF1('f_resolution', '[0] + [1] / (1 + TMath::Exp(- (x - [2]) / [3] ))', x_min, x_max)
+        #f_resolution.SetParameters(0.04, 0.02, 0.5, 0.1)
+        #f_resolution.SetParLimits(0, 0.01, 0.2)   # baseline resolution
+        #f_resolution.SetParLimits(1, 0.001, 0.1)   # resolution increase
+        #f_resolution.SetParLimits(2, 0.1, 5.)      # resolution turn-on position
+        #f_resolution.SetParLimits(3, 0.01, 1.)     # resolution turn-on steepness
+        
         g_resolution.Fit(f_resolution, 'RMS+')
         
         pid_params = (f_log_mean.GetParameter(0), f_log_mean.GetParameter(1), f_log_mean.GetParameter(2),
-                        f_log_mean.GetParameter(3), f_log_mean.GetParameter(4), f_resolution.GetParameter(0))
+                        f_log_mean.GetParameter(3), f_log_mean.GetParameter(4), f_resolution.GetParameter(0),
+                        f_resolution.GetParameter(1), f_resolution.GetParameter(2), f_resolution.GetParameter(3))
             
         particle_dir.cd()
         g_mean.Write()
         g_log_mean.Write()
+        g_residuals.Write()
         g_resolution.Write()
+        
+        residual_correction = lambda betagamma: residual_params[0]*np.exp(-0.5*((betagamma-residual_params[1])/residual_params[2])**2) + \
+            residual_params[3]*np.exp(-0.5*((betagamma-residual_params[4])/residual_params[5])**2)
 
         self.dataset['fExpTpcSignal'] = np_bethe_bloch(np.abs(self.dataset['fBetaGamma']), *pid_params[:5])
-        compute_resolution = lambda betagamma: pid_params[5] #* 1/ (1 + np.exp(-(betagamma-resolution_params[1])/resolution_params[2]))
+        self.dataset['fExpTpcSignalWithCorrections'] = np_bethe_bloch(np.abs(self.dataset['fBetaGamma']), *pid_params[:5]) + \
+            residual_correction(np.abs(self.dataset['fBetaGamma']))
+        
+        compute_resolution = lambda betagamma: pid_params[5] #+ pid_params[6] * 1/ (1 + np.exp(- (betagamma-pid_params[7]) / pid_params[8]))
         compute_resolution_vectorised = np.vectorize(compute_resolution)
         self.dataset['fResolution'] = compute_resolution_vectorised(abs(self.dataset['fBetaGamma']))
         self.dataset['fNSigmaTPC'] = (self.dataset[self.cfg['dataset']['variable_names'][particle]['signal']] - self.dataset['fExpTpcSignal']) / (self.dataset['fExpTpcSignal'] * self.dataset['fResolution'])
-
+        self.dataset['fNSigmaTPCWithCorrections'] = (self.dataset[self.cfg['dataset']['variable_names'][particle]['signal']] - self.dataset['fExpTpcSignalWithCorrections']) / (self.dataset['fExpTpcSignalWithCorrections'] * self.dataset['fResolution'])
+        
         axis_spec_betagamma = AxisSpec(320, -8, 8, 'beta_gamma', ';#beta#gamma;d#it{E}/d#it{x} (a.u.)')
         axis_spec_tpcsignal = AxisSpec(100, 0, 2000, 'tpc_signal', ';#beta#gamma;d#it{E}/d#it{x} (a.u.)')
         axis_spec_nsigmatpc = AxisSpec(100, -5, 5, 'nsigma_tpc', ';#beta#gamma;n#sigma_{TPC}')
         axis_spec_clsize = AxisSpec(90, 0, 15., 'cl_size', ';#beta#gamma;#LT ITS cluster size (a.u.)#GT #times #LT cos#lambda#GT')
 
-        h2_nsigmatpc = self.dataset.build_th2(f'{x_meta["var_name"]}', 'fNSigmaTPC', axis_spec_betagamma, axis_spec_nsigmatpc)
+        h2_nsigmatpc = self.dataset.build_th2(f'{x_meta["var_name"]}', 'fNSigmaTPC', axis_spec_betagamma, axis_spec_nsigmatpc, title=f';{x_meta["axis_title"]};n#sigma_{{TPC}}')
+        h2_nsigmatpc_with_corrections = self.dataset.build_th2(f'{x_meta["var_name"]}', 'fNSigmaTPCWithCorrections', axis_spec_betagamma, axis_spec_nsigmatpc, 
+                                                               title=f';{x_meta["axis_title"]};n#sigma_{{TPC}} with corrections', name='h2_nsigmatpc_with_corrections')
         h2_exptpc = self.dataset.build_th2(f'{x_meta["var_name"]}', 'fExpTpcSignal', axis_spec_betagamma, axis_spec_tpcsignal)
         h2_tpc = self.dataset.build_th2(f'{x_meta["var_name"]}', self.cfg['dataset']['variable_names'][particle]['signal'], 
                                         axis_spec_betagamma, axis_spec_tpcsignal)
@@ -367,6 +416,7 @@ class TPCCalibrator:
         
         h2_tpc.Write()
         h2_nsigmatpc.Write()
+        h2_nsigmatpc_with_corrections.Write()
         h2_exptpc.Write('exp_tpc_signal')
         
         canvas = TCanvas('cNSigmaTPC', 'cNSigmaTPC', 800, 600)

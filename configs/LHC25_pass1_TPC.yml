@@ -28,7 +28,7 @@ output:
   
 # ── ITS-specific settings ─────────────────────────────────────────────────────
 tpc:
-  particles: [He, Pr]             # which particles to calibrate
+  particles: [He] #, Pr]             # which particles to calibrate
   x_variable: beta_gamma          # 'beta_gamma' or 'p'
 
   # Signal model used in the RooFit slice fits
