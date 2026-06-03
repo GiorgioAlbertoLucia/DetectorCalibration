@@ -7,6 +7,9 @@ Usage
 """
 
 import argparse
+
+import sys
+sys.path.append('..')
 from calibration.common.config import load_config
 from calibration.tof.calibrator import TOFCalibrator
 

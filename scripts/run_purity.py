@@ -7,8 +7,12 @@ Usage
 """
 
 import argparse
+from ROOT import TFile
+
+import sys
+sys.path.append('..')
 from calibration.common.config import load_config
-from calibration.purity.purity_fitter import PurityFitter
+from calibration.purity.purity_analysis import PurityAnalysis
 
 
 def main():
@@ -19,35 +23,25 @@ def main():
 
     cfg = load_config(args.config)
 
-    from ROOT import TFile
-    from pathlib import Path
 
-    ds_cfg  = cfg['dataset']
-    out_cfg = cfg['output']
-    out_dir = Path(out_cfg.get('dir', 'output'))
-    out_dir.mkdir(parents=True, exist_ok=True)
+    input_file_path  = cfg['dataset']['input_files'][0]
+    output_file_path = cfg['output']['dir'] + f"/{cfg['dataset']['label']}_purity.root"
+    
+    outfile  = TFile(str(output_file_path), 'RECREATE')
 
-    label    = ds_cfg['label']
-    filename = out_cfg.get('filename', f'purity_{label}.root')
-    outpath  = out_dir / filename
-
-    outfile  = TFile(str(outpath), 'RECREATE')
-    analysis = PurityFitter(ds_cfg['input_file'], str(outpath))
-
-    pur_cfg   = cfg['purity']
-    particles = pur_cfg.get('particles', ['He3', 'Had'])
-    detectors = pur_cfg.get('detectors', ['TPC'])
+    cfg_purity = cfg['purity']
+    particles = cfg_purity['particles']
 
     for particle in particles:
+        
+        detectors = cfg_purity[particle]['detectors']
         for detector in detectors:
-            det_cfg = pur_cfg.get(particle, {}).get(detector)
-            if det_cfg is None:
-                print(f'Skipping {particle}/{detector} (no config)')
-                continue
-            analysis.run(outfile, particle, detector, config=det_cfg)
-
+            
+            analysis = PurityAnalysis(input_file_path, output_file_path)
+            analysis.run(outfile, particle, detector, cfg_purity[particle][detector])
+        
     outfile.Close()
-    print(f'\nResults saved to {outpath}')
+    print(f'\nResults saved to {output_file_path}')
 
 
 if __name__ == '__main__':
